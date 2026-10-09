@@ -1,8 +1,10 @@
 import { LOCAL_USER_DISPLAY_NAME, LOCAL_USER_ID } from "./local-user";
+import { loadLocalEnvironment } from "./load-env";
 import { users } from "./schema";
 import { closeDatabase, getDatabase } from "../server/db";
 
 async function seed(): Promise<void> {
+  loadLocalEnvironment();
   try {
     await getDatabase()
       .insert(users)
