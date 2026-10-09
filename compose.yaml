@@ -1,0 +1,93 @@
+name: wegwaerts
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wegwaerts}
+      POSTGRES_USER: ${POSTGRES_USER:-wegwaerts}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wegwaerts}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  db_test:
+    image: postgres:17-alpine
+    profiles: ["test"]
+    environment:
+      POSTGRES_DB: wegwaerts_test
+      POSTGRES_USER: wegwaerts
+      POSTGRES_PASSWORD: wegwaerts
+    ports:
+      - "127.0.0.1:${TEST_POSTGRES_PORT:-55432}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wegwaerts -d wegwaerts_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    profiles: ["full"]
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  init:
+    image: wegwaerts-init:local
+    build:
+      context: .
+      target: init
+    profiles: ["full"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wegwaerts}:${POSTGRES_PASSWORD:-wegwaerts}@db:5432/${POSTGRES_DB:-wegwaerts}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-c", "pnpm db:migrate && pnpm db:seed"]
+    restart: "no"
+
+  app:
+    image: wegwaerts-app:local
+    build:
+      context: .
+      target: runner
+    profiles: ["full"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wegwaerts}:${POSTGRES_PASSWORD:-wegwaerts}@db:5432/${POSTGRES_DB:-wegwaerts}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b}
+      OLLAMA_TIMEOUT_MS: ${OLLAMA_TIMEOUT_MS:-60000}
+      AI_PROVIDER: ollama
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ollama_data:
