@@ -169,9 +169,10 @@ ENV_FILE="${WEGWAERTS_ENV_FILE:-.env.production.local}"
 banner "Wegwärts production setup"
 
 stage "Legal launch gate"
-warn "Do not publish until /impressum and /datenschutz contain your reviewed real details."
-step "Open both local pages and complete the postal address, direct contact, provider regions, contracts, and log-retention details."
-if ! confirm "Have the legal pages been completed and reviewed?"; then
+warn "The public demo intentionally contains no postal address. This leaves a legal risk."
+step "Verify that /impressum and /datenschutz show Bobby Ly and bobbyly04@gmail.com."
+step "Review provider regions, contracts, data transfers, and log-retention details before launch."
+if ! confirm "Do you consciously want to continue without publishing a postal address?"; then
   warn "Stopping before external resources are created."
   exit 1
 fi

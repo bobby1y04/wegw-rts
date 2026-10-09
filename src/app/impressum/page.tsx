@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Impressum",
-  description: "Vorläufige Anbieterinformationen für Wegwärts.",
+  description: "Anbieterinformationen für die private Wegwärts-Demo.",
 };
 export const dynamic = "force-dynamic";
 
@@ -14,19 +14,19 @@ export default function ImprintPage() {
         <p className="mb-2 font-semibold text-[var(--primary)]">Wegwärts</p>
         <h1 className="page-title">Impressum</h1>
         <p className="mt-4 leading-7 text-[var(--muted-foreground)]">
-          Vorläufige Anbieterinformationen für die Wegwärts-Demo.
+          Anbieterinformationen für das private, nicht-kommerzielle
+          Demonstrationsprojekt Wegwärts.
         </p>
       </header>
 
       <div className="space-y-5">
-        <section className="rounded-2xl border border-red-300 bg-red-50 p-6 text-red-950">
-          <h2 className="text-lg font-semibold">Nicht veröffentlichungsfertig</h2>
+        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-6 text-amber-950">
+          <h2 className="text-lg font-semibold">Hinweis zur Anschrift</h2>
           <p className="mt-2 leading-7">
-            Dieses Impressum ist unvollständig. Die gesetzlich erforderlichen Angaben
-            hängen von der tatsächlichen Anbieter- und Geschäftssituation ab und müssen
-            vor einem öffentlichen Start fachkundig geprüft und vollständig ergänzt
-            werden. Insbesondere fehlen eine ladungsfähige Anschrift und ein direkter
-            elektronischer Kontakt.
+            Der Betreiber veröffentlicht für dieses private Portfolio-Projekt bewusst
+            keine Wohnanschrift. Ob trotz des privaten, unentgeltlichen Charakters eine
+            Anschriftspflicht besteht, wurde nicht abschließend rechtlich geprüft. Die
+            Veröffentlichung erfolgt in Kenntnis dieses verbleibenden Risikos.
           </p>
         </section>
 
@@ -42,14 +42,18 @@ export default function ImprintPage() {
             <div>
               <dt className="font-semibold">Ladungsfähige Anschrift</dt>
               <dd className="text-[var(--muted-foreground)]">
-                Vor Veröffentlichung ergänzen.
+                Nicht öffentlich angegeben.
               </dd>
             </div>
             <div>
               <dt className="font-semibold">Direkter Kontakt</dt>
-              <dd className="text-[var(--muted-foreground)]">
-                E-Mail-Adresse und gegebenenfalls Telefonnummer vor Veröffentlichung
-                ergänzen.
+              <dd>
+                <a
+                  className="font-semibold text-[var(--primary)] underline"
+                  href="mailto:bobbyly04@gmail.com"
+                >
+                  bobbyly04@gmail.com
+                </a>
               </dd>
             </div>
             <div>

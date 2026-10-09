@@ -278,7 +278,8 @@ Für die konto- und secretgebundenen Schritte gibt es einen interaktiven Wizard:
 
 Er öffnet die jeweiligen Dashboards, speichert kopierte Secrets ausschließlich in der
 gitignorierten `.env.production.local`, führt Migrationen nur nach Bestätigung aus und
-stoppt, wenn rechtliche Angaben oder Launch-Prüfungen noch fehlen.
+stoppt, wenn die bewusste Risikoentscheidung oder Launch-Prüfungen nicht bestätigt
+werden.
 
 ### 1. Neon-Datenbank
 
@@ -445,8 +446,8 @@ es keine Zusage zu Verfügbarkeit oder Datenwiederherstellung.
 
 ### Freigabe-Checkliste
 
-- [ ] Impressum um ladungsfähige Anschrift, direkten Kontakt und alle anwendbaren
-      Pflichtangaben ergänzt und rechtlich geprüft
+- [ ] Entscheidung, ohne veröffentlichte Anschrift fortzufahren, bewusst bestätigt;
+      Name und direkter E-Mail-Kontakt geprüft
 - [ ] Datenschutzhinweise mit echten Anbieterregionen, Verträgen, Log-Fristen und
       Drittlandgarantien abgeglichen
 - [ ] Auftragsverarbeitungsverträge mit Vercel, Neon und Cloudflare geprüft/geschlossen

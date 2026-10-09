@@ -25,12 +25,12 @@ export default function PrivacyPage() {
 
       <div className="space-y-5">
         <section className="rounded-2xl border border-amber-300 bg-amber-50 p-6 text-amber-950">
-          <h2 className="text-lg font-semibold">Wichtiger Hinweis vor dem Start</h2>
+          <h2 className="text-lg font-semibold">Private Portfolio-Demo</h2>
           <p className="mt-2 leading-7">
-            Pflichtangaben zur verantwortlichen Stelle und zum Kontakt sind noch zu
-            vervollständigen. Die Demo darf erst öffentlich freigeschaltet werden, wenn
-            diese Angaben, Auftragsverarbeitungsverträge, Löschabläufe und
-            Drittlandübermittlungen geprüft wurden.
+            Wegwärts wird unentgeltlich als privates Demonstrationsprojekt betrieben.
+            Der Betreiber veröffentlicht bewusst keine Wohnanschrift und nimmt das
+            damit verbundene rechtliche Restrisiko in Kauf. Technische und rechtliche
+            Angaben werden bei Änderungen der eingesetzten Dienste aktualisiert.
           </p>
         </section>
 
@@ -49,8 +49,13 @@ export default function PrivacyPage() {
               </a>
             </p>
             <p>
-              Vollständige ladungsfähige Anschrift und direkter Datenschutzkontakt:
-              vor Veröffentlichung ergänzen.
+              Datenschutzkontakt:{" "}
+              <a
+                className="font-semibold text-[var(--primary)] underline"
+                href="mailto:bobbyly04@gmail.com"
+              >
+                bobbyly04@gmail.com
+              </a>
             </p>
           </div>
         </section>

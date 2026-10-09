@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   },
   description:
     "Dein lokaler Bildungsnavigator für Studienwahl, Bewerbung, Finanzierung und Studienalltag.",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+  },
 };
 
 export default function RootLayout({
