@@ -58,7 +58,12 @@ export default async function DashboardPage() {
                 {nextTask.description}
               </p>
             </div>
-            <Button asChild variant="secondary" size="lg">
+            <Button
+              asChild
+              variant="secondary"
+              size="lg"
+              className="bg-white text-[var(--primary-strong)] shadow-md hover:bg-[#f7f2e8]"
+            >
               <Link href={`/weg/${nextTask.id}`}>
                 Aufgabe öffnen
                 <ArrowRight className="size-4" aria-hidden />
