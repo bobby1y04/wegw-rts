@@ -7,6 +7,7 @@ README.md
 CODEX_PROMPT_WEGWAERTS.md
 
 .next
+.next-e2e
 node_modules
 .pnpm-store
 coverage

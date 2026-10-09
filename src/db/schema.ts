@@ -8,6 +8,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -66,6 +67,12 @@ export const users = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     displayName: varchar("display_name", { length: 120 }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now() + interval '7 days'`),
     ...timestamps,
   },
   (table) => [
@@ -232,6 +239,39 @@ export const chatMessages = pgTable(
   ],
 );
 
+export const usageCounters = pgTable(
+  "usage_counters",
+  {
+    scope: varchar("scope", { length: 32 }).notNull(),
+    identifierHash: varchar("identifier_hash", { length: 128 }).notNull(),
+    bucketStart: timestamp("bucket_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(1),
+    ...timestamps,
+  },
+  (table) => [
+    primaryKey({
+      name: "usage_counters_pk",
+      columns: [table.scope, table.identifierHash, table.bucketStart],
+    }),
+    index("usage_counters_bucket_idx").on(table.bucketStart),
+    check("usage_counters_count_positive", sql`${table.count} > 0`),
+  ],
+);
+
+export const aiLeases = pgTable(
+  "ai_leases",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("ai_leases_expires_idx").on(table.expiresAt)],
+);
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(profiles),
   roadmapTasks: many(roadmapTasks),
@@ -290,3 +330,5 @@ export type RoadmapTask = typeof roadmapTasks.$inferSelect;
 export type TaskChecklistItem = typeof taskChecklistItems.$inferSelect;
 export type ChatConversation = typeof chatConversations.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
+export type UsageCounter = typeof usageCounters.$inferSelect;
+export type AiLease = typeof aiLeases.$inferSelect;

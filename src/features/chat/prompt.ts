@@ -74,10 +74,8 @@ function buildContext(
 ): string {
   const context = {
     profil: {
-      name: profile.displayName || undefined,
       phase: profile.phase,
       studiengang: profile.studyProgram || undefined,
-      hochschule: profile.institution || undefined,
       fachsemester: profile.semester ?? undefined,
       interessen: profile.interests?.slice(0, 12),
     },

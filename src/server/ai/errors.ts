@@ -1,5 +1,6 @@
 export type AIErrorCode =
   | "unavailable"
+  | "quota_exceeded"
   | "model_not_found"
   | "timeout"
   | "aborted"
@@ -19,6 +20,20 @@ export class AIUnavailableError extends AIProviderError {
   constructor(message = "Ollama ist nicht erreichbar.", options?: ErrorOptions) {
     super("unavailable", message, options);
     this.name = "AIUnavailableError";
+  }
+}
+
+export class AIQuotaExceededError extends AIProviderError {
+  readonly retryAfterSeconds?: number;
+
+  constructor(retryAfterSeconds?: number, options?: ErrorOptions) {
+    super(
+      "quota_exceeded",
+      "Das Kontingent des KI-Anbieters ist derzeit ausgeschöpft. Versuche es später erneut.",
+      options,
+    );
+    this.name = "AIQuotaExceededError";
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 

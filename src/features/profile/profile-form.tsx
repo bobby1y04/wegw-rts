@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, Compass } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldError, Input, Label } from "@/components/ui/form-controls";
@@ -55,6 +56,9 @@ export function ProfileForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileVersion, setTurnstileVersion] = useState(0);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   function validateCurrentStep() {
     if (step === 0 && !data.phase) {
@@ -88,7 +92,10 @@ export function ProfileForm({
       const response = await fetch("/api/profile", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(parsed.data),
+        body: JSON.stringify({
+          profile: parsed.data,
+          turnstileToken: turnstileToken ?? undefined,
+        }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
@@ -106,6 +113,10 @@ export function ProfileForm({
       );
     } finally {
       setSaving(false);
+      if (onboarding) {
+        setTurnstileToken(null);
+        setTurnstileVersion((current) => current + 1);
+      }
     }
   }
 
@@ -329,6 +340,15 @@ export function ProfileForm({
             {serverError}
           </p>
         )}
+        {onboarding && turnstileSiteKey && (
+          <div className="mt-6">
+            <TurnstileWidget
+              key={turnstileVersion}
+              siteKey={turnstileSiteKey}
+              onToken={setTurnstileToken}
+            />
+          </div>
+        )}
         <div className="mt-8 flex items-center justify-between gap-3">
           {onboarding && step > 0 ? (
             <Button type="button" variant="ghost" onClick={() => setStep(step - 1)}>
@@ -347,7 +367,16 @@ export function ProfileForm({
               <ArrowRight className="size-4" aria-hidden />
             </Button>
           ) : (
-            <Button type="button" onClick={save} disabled={saving}>
+            <Button
+              type="button"
+              onClick={save}
+              disabled={
+                saving ||
+                Boolean(
+                  onboarding && turnstileSiteKey && !turnstileToken,
+                )
+              }
+            >
               {onboarding && <Compass className="size-4" aria-hidden />}
               {saving
                 ? "Wird gespeichert …"

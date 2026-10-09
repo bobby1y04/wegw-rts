@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import { RequestSecurityError } from "@/server/security/request";
+import { SessionRequiredError } from "@/server/session";
+
 export interface ApiErrorBody {
   error: {
     code: string;
@@ -28,4 +31,12 @@ export function validationError(error: ZodError) {
     400,
     error.flatten(),
   );
+}
+
+export function requestSecurityError(error: RequestSecurityError) {
+  return apiError(error.code, error.message, error.status);
+}
+
+export function sessionRequiredError(error: SessionRequiredError) {
+  return apiError("SESSION_REQUIRED", error.message, 401);
 }

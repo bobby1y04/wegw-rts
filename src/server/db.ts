@@ -5,6 +5,10 @@ import * as schema from "../db/schema";
 
 type PostgresClient = ReturnType<typeof postgres>;
 
+function connectionLimit(): number {
+  return process.env.VERCEL ? 2 : 10;
+}
+
 interface DatabaseState {
   client?: PostgresClient;
   db?: ReturnType<typeof createDatabase>;
@@ -22,7 +26,7 @@ if (process.env.NODE_ENV !== "production") {
 
 export function createDatabase(connectionString: string) {
   const client = postgres(connectionString, {
-    max: 10,
+    max: connectionLimit(),
     idle_timeout: 20,
     connect_timeout: 10,
     prepare: false,
@@ -51,7 +55,7 @@ function requireDatabaseUrl(): string {
 export function getDatabase(): Database {
   if (!state.db) {
     state.client = postgres(requireDatabaseUrl(), {
-      max: 10,
+      max: connectionLimit(),
       idle_timeout: 20,
       connect_timeout: 10,
       prepare: false,

@@ -23,6 +23,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: databaseUrl,
       AI_PROVIDER: "mock",
+      NEXT_DIST_DIR: ".next-e2e",
       NEXT_TELEMETRY_DISABLED: "1",
     },
   },

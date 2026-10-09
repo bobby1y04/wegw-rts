@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { DeleteDataButton } from "@/features/profile/delete-data-button";
 import { ProfileForm } from "@/features/profile/profile-form";
 import { ProfileRepository } from "@/server/repositories/profile-repository";
+import { requireCurrentUserId } from "@/server/session";
 
 export const metadata: Metadata = { title: "Profil" };
 
 export default async function ProfilePage() {
-  const profile = await new ProfileRepository().getLocalProfile();
+  const userId = await requireCurrentUserId();
+  const profile = await new ProfileRepository().getForUser(userId);
   if (!profile?.onboardingComplete) redirect("/onboarding");
 
   return (
@@ -30,6 +33,7 @@ export default async function ProfilePage() {
           orientationSupport: profile.orientationSupport ?? "",
         }}
       />
+      <DeleteDataButton />
     </div>
   );
 }

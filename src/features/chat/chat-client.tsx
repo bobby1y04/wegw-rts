@@ -1,12 +1,21 @@
 "use client";
 
-import { Bot, LoaderCircle, Plus, Send, Square, UserRound } from "lucide-react";
+import {
+  Bot,
+  LoaderCircle,
+  Plus,
+  Send,
+  Square,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, KeyboardEvent, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form-controls";
 import { cn } from "@/lib/utils";
@@ -33,11 +42,15 @@ export function ChatClient({
   initialMessages,
   conversations,
   task,
+  turnstileSiteKey,
+  aiNotice,
 }: {
   initialConversationId: string | null;
   initialMessages: Message[];
   conversations: Conversation[];
   task?: { id: string; title: string } | null;
+  turnstileSiteKey?: string;
+  aiNotice: string;
 }) {
   const router = useRouter();
   const [conversationId, setConversationId] = useState(initialConversationId);
@@ -45,11 +58,17 @@ export function ChatClient({
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileVersion, setTurnstileVersion] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   async function sendMessage(rawMessage: string) {
     const message = rawMessage.trim();
     if (!message || streaming) return;
+    if (turnstileSiteKey && !turnstileToken) {
+      setError("Bitte bestätige zuerst den Bot-Schutz.");
+      return;
+    }
 
     setError("");
     setInput("");
@@ -71,6 +90,7 @@ export function ChatClient({
           message,
           conversationId: conversationId ?? undefined,
           taskId: task?.id,
+          turnstileToken: turnstileToken ?? undefined,
         }),
       });
       if (!response.ok || !response.body) {
@@ -144,6 +164,8 @@ export function ChatClient({
     } finally {
       setStreaming(false);
       abortRef.current = null;
+      setTurnstileToken(null);
+      setTurnstileVersion((current) => current + 1);
     }
   }
 
@@ -157,6 +179,25 @@ export function ChatClient({
       event.preventDefault();
       void sendMessage(input);
     }
+  }
+
+  async function deleteConversation() {
+    if (!conversationId || !window.confirm("Diese Unterhaltung löschen?")) return;
+    setError("");
+    const response = await fetch(
+      `/api/chat/conversations/${conversationId}`,
+      {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      },
+    );
+    if (!response.ok) {
+      setError("Die Unterhaltung konnte nicht gelöscht werden.");
+      return;
+    }
+    router.push("/mentor?new=1");
+    router.refresh();
   }
 
   return (
@@ -192,14 +233,27 @@ export function ChatClient({
             <div>
               <h1 className="text-xl font-semibold">Dein Wegwärts-Mentor</h1>
               <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                Lokal mit Ollama · Antworten bitte bei offiziellen Stellen prüfen
+                {aiNotice} · Antworten bitte bei offiziellen Stellen prüfen
               </p>
             </div>
-            <Button asChild variant="ghost" size="icon" className="lg:hidden">
-              <Link href="/mentor?new=1" aria-label="Neue Unterhaltung">
-                <Plus className="size-5" />
-              </Link>
-            </Button>
+            <div className="flex items-center gap-1">
+              {conversationId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={deleteConversation}
+                  aria-label="Unterhaltung löschen"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              )}
+              <Button asChild variant="ghost" size="icon" className="lg:hidden">
+                <Link href="/mentor?new=1" aria-label="Neue Unterhaltung">
+                  <Plus className="size-5" />
+                </Link>
+              </Button>
+            </div>
           </div>
           {task && (
             <div className="mt-3 rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm">
@@ -292,6 +346,15 @@ export function ChatClient({
               )}
             </p>
           )}
+          {turnstileSiteKey && (
+            <div className="mb-3">
+              <TurnstileWidget
+                key={turnstileVersion}
+                siteKey={turnstileSiteKey}
+                onToken={setTurnstileToken}
+              />
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <Textarea
               value={input}
@@ -301,6 +364,7 @@ export function ChatClient({
               aria-label="Nachricht an den Mentor"
               className="min-h-12 max-h-40"
               disabled={streaming}
+              maxLength={1_500}
             />
             {streaming ? (
               <Button
@@ -313,13 +377,21 @@ export function ChatClient({
                 <Square className="size-4" />
               </Button>
             ) : (
-              <Button type="submit" size="icon" disabled={!input.trim()} aria-label="Nachricht senden">
+              <Button
+                type="submit"
+                size="icon"
+                disabled={
+                  !input.trim() || Boolean(turnstileSiteKey && !turnstileToken)
+                }
+                aria-label="Nachricht senden"
+              >
                 <Send className="size-4" />
               </Button>
             )}
           </div>
           <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-            Enter sendet · Shift+Enter fügt eine neue Zeile ein
+            Enter sendet · Shift+Enter fügt eine neue Zeile ein · Bitte keine
+            sensiblen persönlichen Daten eingeben.
           </p>
         </form>
       </section>

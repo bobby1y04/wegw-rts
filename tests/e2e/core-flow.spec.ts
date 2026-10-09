@@ -1,8 +1,6 @@
 import { expect, test } from "@playwright/test";
 import postgres from "postgres";
 
-import { LOCAL_USER_ID } from "../../src/db/local-user";
-
 test.beforeAll(async () => {
   const sql = postgres(
     process.env.E2E_DATABASE_URL ??
@@ -10,17 +8,16 @@ test.beforeAll(async () => {
     { max: 1 },
   );
   try {
-    await sql`delete from users where id = ${LOCAL_USER_ID}`;
-    await sql`
-      insert into users (id, display_name)
-      values (${LOCAL_USER_ID}, 'Lokaler Nutzer')
-    `;
+    await sql`delete from users`;
   } finally {
     await sql.end();
   }
 });
 
-test("Onboarding bis sichtbarer Fahrplanfortschritt", async ({ page }) => {
+test("Onboarding bis sichtbarer Fahrplanfortschritt", async ({
+  page,
+  browser,
+}) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/onboarding$/);
 
@@ -37,6 +34,15 @@ test("Onboarding bis sichtbarer Fahrplanfortschritt", async ({ page }) => {
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { name: "Hallo Alex," })).toBeVisible();
   await expect(page.getByText("0 von 8 Schritten abgeschlossen")).toBeVisible();
+
+  const isolatedContext = await browser.newContext();
+  const isolatedPage = await isolatedContext.newPage();
+  await isolatedPage.goto("/");
+  await expect(isolatedPage).toHaveURL(/\/onboarding$/);
+  await expect(
+    isolatedPage.getByRole("heading", { name: "Dein Weg beginnt hier." }),
+  ).toBeVisible();
+  await isolatedContext.close();
 
   await page.getByRole("link", { name: "Mein Weg" }).first().click();
   await expect(page).toHaveURL(/\/weg$/);
@@ -62,4 +68,9 @@ test("Onboarding bis sichtbarer Fahrplanfortschritt", async ({ page }) => {
   await expect(
     page.getByText("Wir schauen uns deinen nächsten Schritt gemeinsam an."),
   ).toBeVisible();
+
+  await page.getByRole("link", { name: "Profil" }).first().click();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Alle Demo-Daten löschen" }).click();
+  await expect(page).toHaveURL(/\/onboarding$/);
 });

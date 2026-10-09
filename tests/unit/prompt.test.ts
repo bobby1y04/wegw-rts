@@ -12,6 +12,7 @@ const PROFILE = {
   phase: "vor_dem_studium",
   studyProgram: "Informatik",
   institution: "Beispielhochschule",
+  semester: 2,
   interests: ["Bewerbung", "Finanzierung"],
 } as const;
 
@@ -24,7 +25,7 @@ async function collect(iterable: AsyncIterable<string>): Promise<string> {
 }
 
 describe("buildMentorPrompt", () => {
-  it("adds the German mentor policy, profile and optional task", () => {
+  it("adds non-identifying profile fields and the optional task", () => {
     const messages = buildMentorPrompt({
       profile: PROFILE,
       task: {
@@ -37,7 +38,12 @@ describe("buildMentorPrompt", () => {
 
     expect(messages[0]).toMatchObject({ role: "system" });
     expect(messages[0]?.content).toContain(MENTOR_SYSTEM_PROMPT);
-    expect(messages[0]?.content).toContain("Beispielhochschule");
+    expect(messages[0]?.content).not.toContain("Mika");
+    expect(messages[0]?.content).not.toContain("Beispielhochschule");
+    expect(messages[0]?.content).toContain("vor_dem_studium");
+    expect(messages[0]?.content).toContain("Informatik");
+    expect(messages[0]?.content).toContain('"fachsemester":2');
+    expect(messages[0]?.content).toContain("Finanzierung");
     expect(messages[0]?.content).toContain("Bewerbungsweg prüfen");
     expect(messages[0]?.content).toContain("keine verbindliche Rechts-");
     expect(messages.at(-1)).toEqual({

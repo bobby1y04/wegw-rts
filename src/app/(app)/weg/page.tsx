@@ -6,10 +6,10 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { LOCAL_USER_ID } from "@/db/local-user";
 import { calculateRoadmapProgress } from "@/features/roadmap/progress";
 import { ProfileRepository } from "@/server/repositories/profile-repository";
 import { RoadmapRepository } from "@/server/repositories/roadmap-repository";
+import { requireCurrentUserId } from "@/server/session";
 
 export const metadata: Metadata = { title: "Mein Weg" };
 
@@ -20,10 +20,11 @@ const statusMeta = {
 } as const;
 
 export default async function RoadmapPage() {
-  const profile = await new ProfileRepository().getLocalProfile();
+  const userId = await requireCurrentUserId();
+  const profile = await new ProfileRepository().getForUser(userId);
   if (!profile?.onboardingComplete) redirect("/onboarding");
   const tasks = await new RoadmapRepository().listForUser(
-    LOCAL_USER_ID,
+    userId,
     profile.phase,
   );
   const progress = calculateRoadmapProgress(tasks);

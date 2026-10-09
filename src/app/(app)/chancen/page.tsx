@@ -6,11 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { opportunities } from "@/features/opportunities/catalog";
 import { ProfileRepository } from "@/server/repositories/profile-repository";
+import { requireCurrentUserId } from "@/server/session";
 
 export const metadata: Metadata = { title: "Chancen" };
 
 export default async function OpportunitiesPage() {
-  const profile = await new ProfileRepository().getLocalProfile();
+  const userId = await requireCurrentUserId();
+  const profile = await new ProfileRepository().getForUser(userId);
   if (!profile?.onboardingComplete) redirect("/onboarding");
 
   const visibleOpportunities = opportunities.filter(

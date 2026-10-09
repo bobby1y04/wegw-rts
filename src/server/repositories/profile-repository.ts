@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 
-import { LOCAL_USER_ID } from "../../db/local-user";
 import { profiles, users, type Profile } from "../../db/schema";
 import {
   profileInputSchema,
@@ -12,6 +11,8 @@ import { instantiateRoadmapTasks } from "./roadmap-repository";
 export interface ProfileWithDisplayName extends Profile {
   displayName: string | null;
 }
+
+const RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 
 export class ProfileRepository {
   constructor(private readonly database: Database = getDatabase()) {}
@@ -30,15 +31,13 @@ export class ProfileRepository {
     };
   }
 
-  getLocalProfile(): Promise<ProfileWithDisplayName | null> {
-    return this.getForUser(LOCAL_USER_ID);
-  }
-
   async upsert(
     userId: string,
     rawInput: ProfileInput,
   ): Promise<ProfileWithDisplayName> {
     const input = profileInputSchema.parse(rawInput);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + RETENTION_MS);
 
     return this.database.transaction(async (transaction) => {
       await transaction
@@ -46,12 +45,16 @@ export class ProfileRepository {
         .values({
           id: userId,
           displayName: input.displayName ?? null,
+          lastSeenAt: now,
+          expiresAt,
         })
         .onConflictDoUpdate({
           target: users.id,
           set: {
             displayName: input.displayName ?? null,
-            updatedAt: new Date(),
+            lastSeenAt: now,
+            expiresAt,
+            updatedAt: now,
           },
         });
 
@@ -93,9 +96,5 @@ export class ProfileRepository {
         displayName: input.displayName ?? null,
       };
     });
-  }
-
-  upsertLocal(rawInput: ProfileInput): Promise<ProfileWithDisplayName> {
-    return this.upsert(LOCAL_USER_ID, rawInput);
   }
 }

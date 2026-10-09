@@ -2,14 +2,17 @@ import { Compass } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { LegalFooter } from "@/components/layout/legal-footer";
 import { ProfileForm } from "@/features/profile/profile-form";
 import { ProfileRepository } from "@/server/repositories/profile-repository";
+import { requireCurrentUserId } from "@/server/session";
 
 export const metadata: Metadata = { title: "Willkommen" };
 export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
-  const profile = await new ProfileRepository().getLocalProfile();
+  const userId = await requireCurrentUserId();
+  const profile = await new ProfileRepository().getForUser(userId);
   if (profile?.onboardingComplete) redirect("/dashboard");
 
   return (
@@ -26,6 +29,7 @@ export default async function OnboardingPage() {
         </p>
       </div>
       <ProfileForm onboarding />
+      <LegalFooter />
     </main>
   );
 }

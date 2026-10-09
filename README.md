@@ -2,26 +2,28 @@
 
 **Dein Weg. Dein Tempo. Nicht allein.**
 
-Wegwärts ist ein lokaler, KI-gestützter Bildungsnavigator. Die Anwendung verbindet einen
-persönlichen Bildungsfahrplan mit Aufgaben, Fortschritt und einem optionalen Mentor auf
-Basis eines lokal betriebenen Ollama-Modells. Der deterministische Fahrplan bleibt auch
-ohne Ollama nutzbar.
+Wegwärts ist ein KI-gestützter Bildungsnavigator. Die Anwendung verbindet einen
+persönlichen Bildungsfahrplan mit Aufgaben, Fortschritt und einem optionalen Mentor.
+Lokal kann der Mentor über Ollama laufen; für eine öffentliche Demo ist Cloudflare
+Workers AI vorgesehen. Der deterministische Fahrplan bleibt ohne KI-Anbieter nutzbar.
 
-Version 0.1 richtet sich an einen einzelnen lokalen Entwicklungsnutzer. Sie bietet
-Orientierung vor und während des Studiums, aber keine verbindliche Rechts-, Finanz- oder
-Studienberatung. Fristen, Förderbedingungen und hochschulspezifische Regeln müssen immer
-bei der zuständigen offiziellen Stelle geprüft werden.
+Die Demo dient der Orientierung vor und während des Studiums, aber nicht als
+verbindliche Rechts-, Finanz-, Medizin-, psychologische, Studien- oder Berufsberatung.
+KI-Ausgaben können falsch, unvollständig oder veraltet sein. Fristen,
+Förderbedingungen und hochschulspezifische Regeln müssen immer bei der zuständigen
+offiziellen Stelle geprüft werden.
 
 ## Funktionsumfang und Grenzen
 
 - Onboarding und editierbares lokales Profil
 - persönlicher Fahrplan mit Aufgaben, Checklisten, Status und optionalen Fälligkeiten
 - Dashboard mit dem nächsten nachvollziehbar bestimmten Schritt
-- lokaler, streamender KI-Mentor über Ollama
+- streamender KI-Mentor über lokales Ollama oder in der Demo über Cloudflare Workers AI
 - kuratierte Einstiegspunkte für Finanzierung, Stipendien, Beratung und Berufspraxis
-- keine Registrierung, keine echte Authentifizierung und kein Mehrnutzerbetrieb
+- öffentliche Demo mit anonymen, auf sieben Tage begrenzten Sitzungen; keine Konten
 - keine Live-Fristen, Live-Stipendiensuche oder automatische Förderberechtigungsprüfung
-- keine externen KI-, Analyse- oder Telemetriedienste
+- Cloudflare Turnstile als Bot- und Missbrauchsschutz in der öffentlichen Demo
+- keine Werbe-, Profiling- oder Reichweitenanalyse
 
 ## Voraussetzungen
 
@@ -50,6 +52,14 @@ meist die sinnvollere Ollama-Konfiguration.
 
    ```bash
    cp .env.example .env.local
+   ```
+
+   Geheimniswerte bleiben in der Vorlage absichtlich leer. Für die mitgelieferte
+   lokale Compose-Datenbank mindestens folgende Werte in `.env.local` setzen:
+
+   ```dotenv
+   DATABASE_URL=postgresql://wegwaerts:wegwaerts@127.0.0.1:5432/wegwaerts
+   POSTGRES_PASSWORD=wegwaerts
    ```
 
 2. PostgreSQL starten:
@@ -146,17 +156,30 @@ Dieser letzte Befehl löscht die lokale Datenbank und das heruntergeladene Model
 
 `.env.example` dokumentiert alle Betriebsvariablen:
 
-- `DATABASE_URL`: PostgreSQL-Verbindung für auf dem Host gestartete Prozesse
+- `DATABASE_URL`: PostgreSQL-Verbindung für Runtime-Zugriffe; in Vercel die gepoolte
+  Neon-Verbindung
+- `DATABASE_MIGRATION_URL`: direkte, ungepoolte Neon-Verbindung ausschließlich für
+  Migrationen
+- `SESSION_SECRET`: Signatur-/Verschlüsselungssecret für anonyme Demo-Sitzungen
+- `IP_HASH_SECRET`: separates Secret für pseudonymisierte Missbrauchslimits
+- `CRON_SECRET`: schützt den täglichen Bereinigungsendpunkt
+- `AI_ENABLED`, `AI_MAX_OUTPUT_TOKENS`: serverseitiger KI-Hard-Stop und Ausgabelimit
+- `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_API_TOKEN`, `CLOUDFLARE_AI_MODEL`:
+  serverseitige Workers-AI-Konfiguration
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`: öffentlicher Turnstile-Site-Key
+- `TURNSTILE_SECRET_KEY`: serverseitiger Turnstile-Secret-Key
 - `OLLAMA_BASE_URL`: serverseitige Ollama-Basis-URL; niemals vom Browser direkt genutzt
 - `OLLAMA_MODEL`: Modellname, standardmäßig `qwen3:4b`
 - `OLLAMA_TIMEOUT_MS`: serverseitiges Zeitlimit für eine Mentor-Antwort
-- `AI_PROVIDER`: `ollama` im Betrieb; `mock` ausschließlich für automatisierte Tests
+- `AI_PROVIDER`: `workers-ai` in der öffentlichen Demo, `ollama` lokal und `mock`
+  ausschließlich für automatisierte Tests
 - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`: lokale Compose-Datenbank
 - `POSTGRES_PORT`: localhost-Port der Datenbank, standardmäßig `5432`
 - `TEST_POSTGRES_PORT`: Port der isolierten, flüchtigen Testdatenbank, standardmäßig `55432`
 - `APP_PORT`: localhost-Port der containerisierten App, standardmäßig `3000`
 - `OLLAMA_PORT`: localhost-Port des Container-Ollama, standardmäßig `11434`
 - `OLLAMA_IMAGE`: verwendetes Ollama-Container-Image
+- `DATABASE_URL_TEST`, `E2E_DATABASE_URL`: isolierte Datenbanken für Integration und E2E
 - `NEXT_TELEMETRY_DISABLED`: deaktiviert die Next.js-Telemetrie
 
 Compose setzt für App und Init absichtlich interne URLs mit den Servicenamen `db` und
@@ -241,6 +264,203 @@ Das Produktionsimage erwartet Next.js-Standalone-Ausgabe (`output: "standalone"`
 Next-Konfiguration). Es enthält nur den Standalone-Server, statische Assets und
 öffentliche Dateien. Migrationen laufen bewusst im separaten kurzlebigen `init`-Image.
 
+## Öffentliche Demo auf kostenlosen Tarifen
+
+Die vorgesehene Kombination ist Vercel Hobby, Neon Free und Cloudflare für Workers AI,
+Turnstile sowie eine **DNS-only** geschaltete Subdomain. Die folgenden Schritte sind
+eine Anleitung; sie führen selbst keine externe Einrichtung aus.
+
+Für die konto- und secretgebundenen Schritte gibt es einen interaktiven Wizard:
+
+```bash
+./scripts/deploy-wizard.sh
+```
+
+Er öffnet die jeweiligen Dashboards, speichert kopierte Secrets ausschließlich in der
+gitignorierten `.env.production.local`, führt Migrationen nur nach Bestätigung aus und
+stoppt, wenn rechtliche Angaben oder Launch-Prüfungen noch fehlen.
+
+### 1. Neon-Datenbank
+
+1. Ein Neon-Projekt in einer EU-Region anlegen, sofern eine passende Region verfügbar
+   ist. Für Produktion und Preview mindestens getrennte Neon-Branches, besser getrennte
+   Projekte mit getrennten Zugangsdaten verwenden.
+2. Aus dem Neon-Dashboard beide Verbindungsarten kopieren:
+   - die **gepoolte** Verbindung als `DATABASE_URL` für die Vercel-Runtime;
+   - die **direkte, ungepoolte** Verbindung als `DATABASE_MIGRATION_URL`.
+3. `sslmode=require` beibehalten. Zugangsdaten niemals committen, in Logs ausgeben oder
+   an den Browser übertragen.
+4. Migrationen von einem vertrauenswürdigen Rechner mit der direkten URL ausführen.
+   Das Migrationsskript bevorzugt dafür `DATABASE_MIGRATION_URL`:
+
+   ```bash
+   DATABASE_MIGRATION_URL="<direkte Neon-URL>" pnpm db:migrate
+   ```
+
+Die gepoolte URL ist für kurzlebige und parallele Serverless-Verbindungen ausgelegt.
+Migrationen brauchen dagegen eine direkte Verbindung und dürfen nicht beim Start jeder
+Vercel-Instanz laufen. Produktionsdaten dürfen nicht in Preview-Deployments verwendet
+werden.
+
+### 2. Cloudflare Workers AI und Turnstile
+
+1. Einen API-Token mit den kleinstmöglichen Berechtigungen für Workers AI erstellen und
+   `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_API_TOKEN` und
+   `CLOUDFLARE_AI_MODEL` notieren.
+2. Ein Turnstile-Widget für die spätere Produktions-Subdomain erstellen. Den Site-Key
+   als `NEXT_PUBLIC_TURNSTILE_SITE_KEY` und den geheimen Schlüssel als
+   `TURNSTILE_SECRET_KEY` hinterlegen.
+3. Für Preview-Deployments ein eigenes Widget beziehungsweise die offiziellen
+   Turnstile-Testschlüssel und einen separaten Workers-AI-Token verwenden. Keine
+   Produktionssecrets zum bequemen Testen in den Preview-Scope kopieren.
+4. Hostname-Einschränkungen des Turnstile-Widgets nach jedem Domainwechsel kontrollieren.
+
+Mentor-Eingaben werden bei `AI_PROVIDER=workers-ai` an Cloudflare Workers AI
+übertragen. Deshalb dürfen Nutzerinnen und Nutzer keine sensiblen oder identifizierenden
+Daten eingeben; der sichtbare KI- und Datenschutzhinweis ist Bestandteil des
+Deployment-Gates.
+
+### 3. Vercel-Hobby-Projekt
+
+1. Das Repository in Vercel importieren, das Next.js-Framework-Preset und `pnpm` anhand
+   des Repositorys erkennen lassen. Build- und Install-Overrides sind normalerweise
+   nicht erforderlich.
+2. In **Project Settings → Environment Variables** die Produktionswerte eintragen.
+   Secrets nur für **Production** freigeben. Für **Preview** vollständig getrennte
+   Werte setzen; **Development** bleibt lokal in `.env.local`.
+   `DATABASE_MIGRATION_URL` nicht an die Vercel-Runtime geben, sondern nur in einer
+   geschützten Migrationsumgebung vorhalten.
+3. Vor dem ersten produktiven Deployment mit der direkten Neon-Verbindung migrieren.
+   Danach den Production-Deploy auslösen und `/datenschutz`, `/impressum`, Turnstile,
+   Sitzungsablauf und KI-Fehlerfälle prüfen.
+4. In Production mindestens folgende Werte kontrollieren:
+
+   ```dotenv
+   DATABASE_URL=<gepoolte Neon-URL>
+   APP_ORIGIN=https://wegwaerts.bobbyly.com
+   PUBLIC_DEMO=true
+   SESSION_SECRET=<zufällig, nur Production>
+   IP_HASH_SECRET=<separat zufällig, nur Production>
+   CRON_SECRET=<zufällig, nur Production>
+   AI_PROVIDER=workers-ai
+   AI_ENABLED=true
+   AI_MAX_OUTPUT_TOKENS=500
+   CLOUDFLARE_ACCOUNT_ID=<Production-Konto>
+   CLOUDFLARE_AI_API_TOKEN=<minimal berechtigter Production-Token>
+   CLOUDFLARE_AI_MODEL=<freigegebenes Workers-AI-Modell>
+   NEXT_PUBLIC_TURNSTILE_SITE_KEY=<Site-Key der Production-Subdomain>
+   TURNSTILE_SECRET_KEY=<Production-Secret>
+   NEXT_TELEMETRY_DISABLED=1
+   ```
+
+Zusätzlich in der getrennten Migrationsumgebung prüfen:
+
+```dotenv
+DATABASE_MIGRATION_URL=<direkte Neon-URL>
+```
+
+`SESSION_SECRET`, `IP_HASH_SECRET` und `CRON_SECRET` müssen voneinander verschieden sein
+und jeweils aus mindestens 32 zufälligen Bytes bestehen. `AI_ENABLED=false` ist der
+operative Hard-Stop für neue KI-Anfragen. Werte mit `NEXT_PUBLIC_` sind Bestandteil des
+Browser-Bundles und dürfen nie geheim sein. Nach Änderungen an Variablen ist ein neues
+Deployment erforderlich.
+
+### 4. Tägliche Löschung
+
+`vercel.json` plant täglich um `03:00 UTC` einen Aufruf von
+`/api/cron/cleanup`:
+
+```json
+{
+  "crons": [{ "path": "/api/cron/cleanup", "schedule": "0 3 * * *" }]
+}
+```
+
+Vercel sendet bei gesetztem `CRON_SECRET` den Header
+`Authorization: Bearer <CRON_SECRET>`. Der Endpunkt muss diesen Wert konstantzeitnah
+prüfen, ausschließlich abgelaufene Sitzungen samt zugehörigen Daten löschen,
+idempotent sein und ohne Secret mit `401` oder `403` antworten. Auf Hobby ist der
+Ausführungszeitpunkt eines täglichen Cronjobs nicht minutengenau garantiert.
+
+Der Endpunkt ist implementiert, verlangt das Bearer-Secret und löscht abgelaufene
+Nutzer samt abhängigen Profil-, Fahrplan- und Chatdaten über Foreign-Key-Kaskaden.
+Vor dem öffentlichen Start muss ein echter Vercel-Cronlauf im Production-Projekt
+kontrolliert werden.
+
+### 5. Cloudflare-Subdomain als DNS-only CNAME
+
+Für die geplante Subdomain `wegwaerts.bobbyly.com` ist der Ablauf:
+
+1. In Vercel unter **Project Settings → Domains** zuerst die vollständige Subdomain
+   `wegwaerts.bobbyly.com` hinzufügen.
+2. Die von Vercel angezeigte DNS-Anweisung ablesen. Für eine normale Subdomain ist sie
+   üblicherweise:
+   - Typ: `CNAME`
+   - Name: `wegwaerts`
+   - Ziel: `cname.vercel-dns.com`
+3. In **Cloudflare → DNS → Records** genau diesen CNAME anlegen. **Proxy status** auf
+   **DNS only** (graue Wolke) und TTL auf **Auto** setzen. Existierende A-, AAAA- oder
+   CNAME-Einträge desselben Namens vorher konfliktfrei auflösen.
+4. Falls Vercel ein projektspezifisches anderes Ziel anzeigt, gilt ausschließlich das
+   im Vercel-Dashboard angezeigte Ziel, nicht der Beispielwert oben.
+5. DNS-Auflösung abwarten, anschließend in Vercel **Refresh/Verify** ausführen und erst
+   nach erfolgreicher Verifikation und ausgestelltem TLS-Zertifikat die Subdomain
+   veröffentlichen.
+
+Die orange Cloudflare-Proxy-Wolke bleibt aus. TLS und Routing der Anwendung übernimmt
+für diese DNS-only-Subdomain Vercel; Cloudflare bleibt DNS-Anbieter sowie Anbieter von
+Workers AI und Turnstile.
+
+### Preview-Isolation
+
+- Production-, Preview- und lokale Umgebungen verwenden unterschiedliche
+  `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `SESSION_SECRET`, `IP_HASH_SECRET`,
+  `CRON_SECRET`, Cloudflare-Tokens und Turnstile-Schlüssel.
+- Preview greift nie auf Produktionsdaten zu und erhält keine Production-Secrets.
+- Ein Preview-Cron darf nicht gegen die Produktionsdatenbank laufen. Vercel-Cronjobs
+  werden aus dem Production-Deployment konfiguriert; manuelle Preview-Tests verwenden
+  ausschließlich Preview-Daten und -Secrets.
+- Logs, Screenshots und Support-Anfragen dürfen keine Connection-Strings, Cookies,
+  Tokens oder Nutzereingaben enthalten.
+- Nicht mehr benötigte Preview-Branches und Secrets werden zeitnah gelöscht.
+
+### Grenzen kostenloser Tarife
+
+Kostenlose Tarife sind weder Verfügbarkeitsgarantie noch automatisch ein verlässlicher
+Kosten-Hard-Stop. Limits, Abrechnungsmodell und Nutzungsbedingungen können sich ändern:
+
+- Vercel Hobby kann Builds, Funktionen, Bandbreite und Cron-Ausführung begrenzen oder
+  pausieren; tägliche Cronjobs sind nicht minutengenau.
+- Neon Free kann Compute nach Inaktivität schlafen legen und Verbindungen, Laufzeit,
+  Speicher oder Datentransfer begrenzen.
+- Workers AI kann Neurons-/Anfragekontingente ablehnen oder – abhängig von Konto und
+  aktivierter Abrechnung – kostenpflichtig weiterlaufen. Turnstile schützt nicht vor
+  jeder Form von Missbrauch.
+
+Vor dem Start sind in allen drei Konten aktuelle Limits, Abrechnung, Benachrichtigungen
+und vorhandene Spend-Caps zu prüfen. Wenn ein Anbieterlimit erreicht ist, muss die
+Anwendung sicher fehlschlagen: keine Ausweichspeicherung sensibler Daten, keine
+ungeprüfte Anbieterumschaltung und eine verständliche Fehlermeldung. Für die Demo gibt
+es keine Zusage zu Verfügbarkeit oder Datenwiederherstellung.
+
+### Freigabe-Checkliste
+
+- [ ] Impressum um ladungsfähige Anschrift, direkten Kontakt und alle anwendbaren
+      Pflichtangaben ergänzt und rechtlich geprüft
+- [ ] Datenschutzhinweise mit echten Anbieterregionen, Verträgen, Log-Fristen und
+      Drittlandgarantien abgeglichen
+- [ ] Auftragsverarbeitungsverträge mit Vercel, Neon und Cloudflare geprüft/geschlossen
+- [ ] Nutzung erst ab 16 Jahren sowie Verbot sensibler und identifizierender Eingaben
+      gut sichtbar
+- [ ] KI-Hinweis und Beratungsgrenzen vor der ersten Mentor-Nachricht sichtbar
+- [ ] anonyme Sitzungen auf sieben Tage begrenzt; manuelle und automatische Löschung
+      getestet
+- [ ] `/api/cron/cleanup` authentifiziert, idempotent und in Vercel erfolgreich gelaufen
+- [ ] Production und Preview vollständig getrennt; keine Production-Secrets in Preview
+- [ ] Turnstile-Hostname, Security Header, Rate Limits und Fehlerfälle geprüft
+- [ ] Free-Tier-Limits, Warnungen und mögliche Kosten in allen Anbieter-Konten geprüft
+- [ ] DNS-only CNAME, Vercel-Verifikation und TLS erfolgreich kontrolliert
+
 ## Fehlerbehebung
 
 ### Ollama ist nicht erreichbar
@@ -319,17 +539,18 @@ waren. So läuft kein Server gegen ein veraltetes Schema.
 
 ## Sicherheit und öffentliche Bereitstellung
 
-Wegwärts 0.1 ist ausschließlich für einen lokalen Tester vorgesehen. Die
-localhost-Bindung der Docker-Ports ersetzt keine Authentifizierung. Vor jeder
-öffentlichen Bereitstellung sind mindestens erforderlich:
+Die öffentliche Variante ist nur als begrenzte, anonyme Demo vorgesehen. Anonym
+bedeutet nicht automatisch datenschutzfrei: Sitzungskennungen, IP-Adressen und freie
+Texte können personenbezogen sein. Die localhost-Bindung der Docker-Ports ersetzt
+keine Schutzmaßnahme für Produktion.
 
-- echte Authentifizierung, sichere Sitzungen und konsequente Autorisierung pro Datensatz
-- produktionsgeeignete Secrets-Verwaltung und getrennte Datenbankzugänge
-- TLS, sichere Proxy-Konfiguration, Security Header und Rate Limits
-- Bedrohungsmodell, Abhängigkeits- und Container-Scans sowie Sicherheitsprüfung
-- Datenschutzkonzept mit Rechtsgrundlage, Lösch- und Auskunftsprozessen,
-  Aufbewahrungsfristen und verständlicher Datenschutzerklärung
-- Prüfung von Protokollierung, Backups, Wiederherstellung und Zugriffsschutz
-- fachliche und rechtliche Prüfung aller Beratungsgrenzen und sichtbaren Hinweise
+Vor jeder Freigabe sind sichere, getrennte Sitzungen, Autorisierung pro Datensatz,
+serverseitige Secrets, TLS, Security Header, Rate Limits, Bot-Schutz, ein
+Bedrohungsmodell und die Löschung nach sieben Tagen praktisch zu prüfen. Ebenso nötig
+sind ein Prozess für Betroffenenrechte, minimierte Provider-Logs, Zugriffsschutz,
+Abhängigkeitsprüfungen und sichtbare Beratungsgrenzen.
 
-Ohne diese Maßnahmen darf die Anwendung nicht ins öffentliche Netz gestellt werden.
+Die Seiten `/datenschutz` und `/impressum` sind bewusst als vorläufig markiert. Solange
+Pflichtangaben fehlen oder der Cleanup-Endpunkt und die tatsächlichen
+Anbietereinstellungen nicht verifiziert sind, darf die Demo nicht öffentlich gestartet
+werden.

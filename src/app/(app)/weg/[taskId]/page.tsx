@@ -6,11 +6,11 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { LOCAL_USER_ID } from "@/db/local-user";
 import { calculateChecklistProgress } from "@/features/roadmap/progress";
 import { TaskControls } from "@/features/roadmap/task-controls";
 import { ProfileRepository } from "@/server/repositories/profile-repository";
 import { RoadmapRepository } from "@/server/repositories/roadmap-repository";
+import { requireCurrentUserId } from "@/server/session";
 
 export const metadata: Metadata = { title: "Aufgabe" };
 
@@ -19,11 +19,12 @@ export default async function TaskPage({
 }: {
   params: Promise<{ taskId: string }>;
 }) {
-  const profile = await new ProfileRepository().getLocalProfile();
+  const userId = await requireCurrentUserId();
+  const profile = await new ProfileRepository().getForUser(userId);
   if (!profile?.onboardingComplete) redirect("/onboarding");
 
   const { taskId } = await params;
-  const task = await new RoadmapRepository().getById(LOCAL_USER_ID, taskId);
+  const task = await new RoadmapRepository().getById(userId, taskId);
   if (!task) notFound();
   const checklistProgress = calculateChecklistProgress(task.checklistItems);
 

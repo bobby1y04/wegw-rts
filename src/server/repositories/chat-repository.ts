@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 
 import {
   chatConversations,
@@ -12,6 +12,13 @@ export class ChatConversationNotFoundError extends Error {
   constructor() {
     super("Die Unterhaltung wurde nicht gefunden.");
     this.name = "ChatConversationNotFoundError";
+  }
+}
+
+export class ChatStorageLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ChatStorageLimitError";
   }
 }
 
@@ -51,16 +58,30 @@ export class ChatRepository {
     userId: string,
     title = "Neue Unterhaltung",
   ): Promise<ChatConversation> {
-    const [conversation] = await this.database
-      .insert(chatConversations)
-      .values({ userId, title: title.trim() })
-      .returning();
+    return this.database.transaction(async (transaction) => {
+      await transaction.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${userId}))`,
+      );
+      const [result] = await transaction
+        .select({ count: count() })
+        .from(chatConversations)
+        .where(eq(chatConversations.userId, userId));
+      if ((result?.count ?? 0) >= 3) {
+        throw new ChatStorageLimitError(
+          "Du kannst in dieser Demo höchstens drei Unterhaltungen speichern.",
+        );
+      }
 
-    if (!conversation) {
-      throw new Error("Die Unterhaltung konnte nicht erstellt werden.");
-    }
+      const [conversation] = await transaction
+        .insert(chatConversations)
+        .values({ userId, title: title.trim() })
+        .returning();
 
-    return conversation;
+      if (!conversation) {
+        throw new Error("Die Unterhaltung konnte nicht erstellt werden.");
+      }
+      return conversation;
+    });
   }
 
   async renameConversation(
@@ -90,6 +111,9 @@ export class ChatRepository {
     content: string,
   ): Promise<ChatMessage> {
     return this.database.transaction(async (transaction) => {
+      await transaction.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${userId}))`,
+      );
       const conversation =
         await transaction.query.chatConversations.findFirst({
           where: and(
@@ -100,6 +124,20 @@ export class ChatRepository {
         });
 
       if (!conversation) throw new ChatConversationNotFoundError();
+
+      const [stored] = await transaction
+        .select({ count: count() })
+        .from(chatMessages)
+        .innerJoin(
+          chatConversations,
+          eq(chatMessages.conversationId, chatConversations.id),
+        )
+        .where(eq(chatConversations.userId, userId));
+      if ((stored?.count ?? 0) >= 40) {
+        throw new ChatStorageLimitError(
+          "Das Nachrichtenlimit dieser Demo-Sitzung ist erreicht.",
+        );
+      }
 
       const [message] = await transaction
         .insert(chatMessages)

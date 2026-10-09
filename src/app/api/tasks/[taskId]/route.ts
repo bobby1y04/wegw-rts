@@ -1,13 +1,25 @@
 import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 
-import { LOCAL_USER_ID } from "@/db/local-user";
-import { apiError, validationError } from "@/lib/api-response";
+import {
+  apiError,
+  requestSecurityError,
+  sessionRequiredError,
+  validationError,
+} from "@/lib/api-response";
 import {
   InvalidTaskStatusTransitionError,
   RoadmapRepository,
   RoadmapTaskNotFoundError,
 } from "@/server/repositories/roadmap-repository";
+import {
+  readSecureJson,
+  RequestSecurityError,
+} from "@/server/security/request";
+import {
+  requireCurrentUserId,
+  SessionRequiredError,
+} from "@/server/session";
 
 export const runtime = "nodejs";
 
@@ -37,16 +49,17 @@ export async function PATCH(
       return apiError("INVALID_ID", "Die Aufgaben-ID ist ungültig.", 400);
     }
 
-    const input = updateTaskSchema.parse(await request.json());
+    const input = updateTaskSchema.parse(await readSecureJson(request));
+    const userId = await requireCurrentUserId();
     const repository = new RoadmapRepository();
     let task;
 
     if (input.status !== undefined) {
-      task = await repository.updateStatus(LOCAL_USER_ID, taskId, input.status);
+      task = await repository.updateStatus(userId, taskId, input.status);
     }
     if (input.dueDate !== undefined) {
       task = await repository.setDueDate(
-        LOCAL_USER_ID,
+        userId,
         taskId,
         input.dueDate || null,
       );
@@ -55,6 +68,8 @@ export async function PATCH(
     return NextResponse.json({ data: task });
   } catch (error) {
     if (error instanceof ZodError) return validationError(error);
+    if (error instanceof RequestSecurityError) return requestSecurityError(error);
+    if (error instanceof SessionRequiredError) return sessionRequiredError(error);
     if (error instanceof InvalidTaskStatusTransitionError) {
       return apiError("INVALID_STATUS_TRANSITION", error.message, 409);
     }

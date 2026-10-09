@@ -7,6 +7,9 @@ import { loadLocalEnvironment } from "./load-env";
 
 async function runMigrations(): Promise<void> {
   loadLocalEnvironment();
+  if (process.env.DATABASE_MIGRATION_URL) {
+    process.env.DATABASE_URL = process.env.DATABASE_MIGRATION_URL;
+  }
   try {
     await migrate(getDatabase(), {
       migrationsFolder: path.resolve(process.cwd(), "src/db/migrations"),
